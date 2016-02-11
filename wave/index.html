@@ -1,0 +1,190 @@
+<html>
+
+<head>
+    <title>Learning WebGL &mdash; lesson 1</title>
+    <meta http-equiv="content-type" content="text/html; charset=ISO-8859-1">
+
+    <script type="text/javascript" src="glMatrix-0.9.5.min.js"></script>
+
+    <script id="shader-fs" type="x-shader/x-fragment">
+        precision mediump float;
+
+        void main(void) {
+            gl_FragColor = vec4(1.0, 0.0, 1.0, 1.0);
+        }
+    </script>
+
+    <script id="shader-vs" type="x-shader/x-vertex">
+        attribute vec3 aVertexPosition;
+
+        uniform mat4 uMVMatrix;
+        uniform mat4 uPMatrix;
+        uniform mat4 uObjectMatrix;
+
+        uniform float uTime;
+
+        void main(void) {
+            gl_Position = uPMatrix * uMVMatrix * uObjectMatrix * vec4(aVertexPosition, 1.0);
+
+
+            gl_Position.y = sin(gl_Position.x + uTime);
+        }
+    </script>
+
+    <script type="text/javascript" src="initCanvas.js"></script>
+
+    <script type="text/javascript">
+
+
+    var shaderProgram;
+
+    function initShaders() {
+        var fragmentShader = getShader(gl, "shader-fs");
+        var vertexShader = getShader(gl, "shader-vs");
+
+        shaderProgram = gl.createProgram();
+        gl.attachShader(shaderProgram, vertexShader);
+        gl.attachShader(shaderProgram, fragmentShader);
+        gl.linkProgram(shaderProgram);
+
+        if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+            alert("Could not initialise shaders");
+        }
+
+        gl.useProgram(shaderProgram);
+
+        shaderProgram.vertexPositionAttribute = gl.getAttribLocation(shaderProgram, "aVertexPosition");
+        gl.enableVertexAttribArray(shaderProgram.vertexPositionAttribute);
+
+        shaderProgram.pMatrixUniform = gl.getUniformLocation(shaderProgram, "uPMatrix");
+        shaderProgram.mvMatrixUniform = gl.getUniformLocation(shaderProgram, "uMVMatrix");
+        shaderProgram.objectMatrixUniform = gl.getUniformLocation(shaderProgram, "uObjectMatrix");
+        shaderProgram.timeUniform = gl.getUniformLocation(shaderProgram, "uTime");
+    }
+
+
+    var mvMatrix = mat4.create();
+    var pMatrix = mat4.create();
+    var objectMatrix = mat4.create();
+    mat4.identity(objectMatrix);
+
+
+    //////SHADER
+
+    function setMatrixUniforms() {
+        gl.uniformMatrix4fv(shaderProgram.pMatrixUniform, false, pMatrix);
+        gl.uniformMatrix4fv(shaderProgram.mvMatrixUniform, false, mvMatrix);
+        gl.uniformMatrix4fv(shaderProgram.objectMatrixUniform, false, objectMatrix);
+    }
+
+    var waveVertexPositionBuffer;
+    function drawLine(){
+
+        if (waveVertexPositionBuffer == undefined){
+
+            waveVertexPositionBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, waveVertexPositionBuffer);
+
+            var nPoints = 100;
+            var vertices = [];
+            var l = 6;
+            for (var i = 0; i < nPoints; i++) {
+                vertices[vertices.length] = l* (i/(nPoints-1)) -l/2;
+                vertices[vertices.length] = 0;
+                vertices[vertices.length] = 0;
+            };
+
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+            waveVertexPositionBuffer.itemSize = 3;
+            waveVertexPositionBuffer.numItems = nPoints;
+        }
+
+        var ms = (new Date()).getTime();
+
+        //pi/4 per second
+        var phase = (2*3.1416)*((ms % 1000)/1000) ;
+
+
+        gl.uniform1f(shaderProgram.timeUniform, phase);
+
+        mat4.translate(objectMatrix, [0.0, 0.0, -7.0]);
+        gl.bindBuffer(gl.ARRAY_BUFFER, waveVertexPositionBuffer);
+        gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, waveVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+        setMatrixUniforms();
+        gl.drawArrays(gl.LINE_STRIP, 0, waveVertexPositionBuffer.numItems);
+
+        mat4.identity(objectMatrix);
+
+
+    }
+
+    function clearScreen(){
+        gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    }
+
+    function setUpCamera () {
+        mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
+
+        mat4.identity(mvMatrix);
+        gl.uniformMatrix4fv(shaderProgram.pMatrixUniform, false, pMatrix);
+        gl.uniformMatrix4fv(shaderProgram.mvMatrixUniform, false, mvMatrix);
+    }
+
+
+    function drawScene() {
+        clearScreen();
+        setUpCamera();
+        drawLine();
+    }
+
+
+    // function webGLStart() {
+    //     var canvas = document.getElementById("canvas");
+    //     initGL(canvas);
+    //     initShaders();
+
+    //     gl.clearColor(0.0, 0.0, 0.0, 1.0);
+    //     gl.enable(gl.DEPTH_TEST);
+
+    //     drawScene();
+    // }
+
+    var intervalID;
+    window.onload = function(){
+        var canvas = document.getElementById("canvas");
+        initGL(canvas);
+        initShaders();
+
+        gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        gl.enable(gl.DEPTH_TEST);
+
+        intervalID = window.setInterval(drawScene, 30);
+    }
+
+
+    </script>
+
+
+</head>
+
+<style>
+body{
+    width: 100%;
+    margin: 0px;
+}
+
+canvas{
+    width: 100%;
+    height: 100%;
+    margin: 0px;
+}
+
+</style>
+
+
+<body onload="webGLStart();">
+    <canvas id="canvas" style="border: none;" width="1000%" height="1000%"></canvas>
+</body>
+
+</html>
