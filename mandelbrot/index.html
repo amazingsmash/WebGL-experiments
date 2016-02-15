@@ -1,0 +1,245 @@
+<html>
+
+<head>
+    <title>Learning WebGL &mdash; lesson 1</title>
+    <meta http-equiv="content-type" content="text/html; charset=ISO-8859-1">
+
+    <script type="text/javascript" src="glMatrix-0.9.5.min.js"></script>
+
+    <script id="shader-fs" type="x-shader/x-fragment">
+        precision mediump float;
+
+        varying vec2 pixel;
+
+        bool inCircle(in float x, in float y){
+            return ((x * x + y * y) > 1.0);
+        }
+
+        void multComplex(in float a, in float b, 
+                        in float c, in float d, 
+                        out float e, out float f){
+            e = a*c - b*d;
+            f = a*d + b*c;
+        }
+
+        void sumComplex(in float a, in float b, 
+                        in float c, in float d, 
+                        out float e, out float f){
+            e = a+c;
+            f = b+d;
+        }
+
+        float absComplex(in float a, in float b){
+            return sqrt(a*a + b*b);
+        }
+
+        void nextMandelbrot(in float zr, in float zi, 
+                        in float cr, in float ci, 
+                        out float nzr, out float nzi){
+            float zr1;
+            float zi1;
+            multComplex(zr, zi, zr, zi, zr1, zi1);
+            sumComplex(zr1, zi1, cr, ci, nzr, nzi);
+
+
+        }
+
+        const int maxIter = 30;
+
+        int escapeMandelbrot(in vec2 p){
+            float cr = p.x;
+            float ci = p.y;
+
+            float zr = 0.0;
+            float zi = 0.0;
+
+            float nzr, nzi;
+
+            for(int i=0;i<maxIter;++i)
+            {
+
+                nextMandelbrot(zr,zi,
+                                cr, ci,
+                                nzr, nzi);
+
+                zr = nzr;
+                zi = nzi;
+
+                if ( absComplex(zr, zi) > 2.0){
+                    return i;
+                }
+
+            }
+
+        }
+
+        void main(void) {
+
+            int e = escapeMandelbrot(pixel);
+
+            float x = float(e) / float(maxIter);
+            gl_FragColor = vec4(x, x, x, 1.0);
+
+
+            // if ( inCircle(pixel.x, pixel.y) ){
+            //     gl_FragColor = vec4(1.0, 1.0, 0.0, 1.0);
+            // } else{
+            //     gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+            // }
+        }
+    </script>
+
+    <script id="shader-vs" type="x-shader/x-vertex">
+        attribute vec3 aVertexPosition;
+
+        uniform mat4 uMVMatrix;
+        uniform mat4 uPMatrix;
+        uniform mat4 uObjectMatrix;
+
+        varying vec2 pixel;
+
+        void main(void) {
+            gl_Position = uPMatrix * uMVMatrix * uObjectMatrix * vec4(aVertexPosition, 1.0);
+
+            pixel.x = aVertexPosition.x;
+            pixel.y = aVertexPosition.y;
+        }
+    </script>
+
+    <script type="text/javascript" src="initCanvas.js"></script>
+
+    <script type="text/javascript">
+
+
+    var shaderProgram;
+
+    function initShaders() {
+        var fragmentShader = getShader(gl, "shader-fs");
+        var vertexShader = getShader(gl, "shader-vs");
+
+        shaderProgram = gl.createProgram();
+        gl.attachShader(shaderProgram, vertexShader);
+        gl.attachShader(shaderProgram, fragmentShader);
+        gl.linkProgram(shaderProgram);
+
+        if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+            alert("Could not initialise shaders");
+        }
+
+        gl.useProgram(shaderProgram);
+
+        shaderProgram.vertexPositionAttribute = gl.getAttribLocation(shaderProgram, "aVertexPosition");
+        gl.enableVertexAttribArray(shaderProgram.vertexPositionAttribute);
+
+        shaderProgram.pMatrixUniform = gl.getUniformLocation(shaderProgram, "uPMatrix");
+        shaderProgram.mvMatrixUniform = gl.getUniformLocation(shaderProgram, "uMVMatrix");
+        shaderProgram.objectMatrixUniform = gl.getUniformLocation(shaderProgram, "uObjectMatrix");
+    }
+
+
+    var mvMatrix = mat4.create();
+    var pMatrix = mat4.create();
+    var objectMatrix = mat4.create();
+    mat4.identity(objectMatrix);
+
+
+    //////SHADER
+
+    function setMatrixUniforms() {
+        gl.uniformMatrix4fv(shaderProgram.pMatrixUniform, false, pMatrix);
+        gl.uniformMatrix4fv(shaderProgram.mvMatrixUniform, false, mvMatrix);
+        gl.uniformMatrix4fv(shaderProgram.objectMatrixUniform, false, objectMatrix);
+    }
+
+    var triangleVertexPositionBuffer;
+    var squareVertexPositionBuffer;
+
+    function drawSquare () {
+
+        if (squareVertexPositionBuffer == undefined){
+            squareVertexPositionBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexPositionBuffer);
+            vertices = [
+            2.0,  2.0,  0.0,
+            -2.0,  2.0,  0.0,
+            2.0, -2.0,  0.0,
+            -2.0, -2.0,  0.0
+            ];
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+            squareVertexPositionBuffer.itemSize = 3;
+            squareVertexPositionBuffer.numItems = 4;
+        }
+
+
+        mat4.translate(objectMatrix, [0.0, 0.0, -7.0]);
+        gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexPositionBuffer);
+        gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, squareVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+        setMatrixUniforms();
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, squareVertexPositionBuffer.numItems);
+
+        
+        mat4.identity(objectMatrix);
+    }
+
+    function clearScreen(){
+        gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    }
+
+    function setUpCamera () {
+        mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
+
+        mat4.identity(mvMatrix);
+        gl.uniformMatrix4fv(shaderProgram.pMatrixUniform, false, pMatrix);
+        gl.uniformMatrix4fv(shaderProgram.mvMatrixUniform, false, mvMatrix);
+    }
+
+
+    function drawScene() {
+        clearScreen();
+        setUpCamera();
+        drawSquare();
+    }
+
+    function renderLoop() {
+        drawScene();
+        window.setTimeout(renderLoop, 1000 / 60);
+    }
+
+    function webGLStart() {
+        var canvas = document.getElementById("canvas");
+        initGL(canvas);
+        initShaders();
+
+        gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        gl.enable(gl.DEPTH_TEST);
+
+        drawScene();
+    }
+
+
+    </script>
+
+
+</head>
+
+<style>
+body{
+    width: 100%;
+    margin: 0px;
+}
+
+canvas{
+    width: 100%;
+    height: 100%;
+    margin: 0px;
+}
+
+</style>
+
+
+<body onload="webGLStart();">
+    <canvas id="canvas" style="border: none;" width="1000%" height="1000%"></canvas>
+</body>
+
+</html>
