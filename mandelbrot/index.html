@@ -9,15 +9,15 @@
     <script id="shader-fs" type="x-shader/x-fragment">
         precision mediump float;
 
-        varying vec2 pixel;
+        varying  highp vec2 pixel;
 
-        bool inCircle(in float x, in float y){
+        bool inCircle(in highp float x, in  highp float y){
             return ((x * x + y * y) > 1.0);
         }
 
-        void multComplex(in float a, in float b, 
-                        in float c, in float d, 
-                        out float e, out float f){
+        void multComplex(in  highp float a, in  highp float b, 
+                        in  highp float c, in  highp float d, 
+                        out  highp float e, out  highp float f){
             e = a*c - b*d;
             f = a*d + b*c;
         }
@@ -36,8 +36,8 @@
         void nextMandelbrot(in float zr, in float zi, 
                         in float cr, in float ci, 
                         out float nzr, out float nzi){
-            float zr1;
-            float zi1;
+             highp float zr1;
+             highp float zi1;
             multComplex(zr, zi, zr, zi, zr1, zi1);
             sumComplex(zr1, zi1, cr, ci, nzr, nzi);
 
@@ -47,13 +47,13 @@
         const int maxIter = 30;
 
         int escapeMandelbrot(in vec2 p){
-            float cr = p.x;
-            float ci = p.y;
+             highp float cr = p.x;
+             highp float ci = p.y;
 
-            float zr = 0.0;
-            float zi = 0.0;
+             highp float zr = 0.0;
+             highp float zi = 0.0;
 
-            float nzr, nzi;
+             highp float nzr, nzi;
 
             for(int i=0;i<maxIter;++i)
             {
@@ -78,7 +78,7 @@
             int e = escapeMandelbrot(pixel);
 
             float x = float(e) / float(maxIter);
-            gl_FragColor = vec4(x, x, x, 1.0);
+            gl_FragColor = vec4(x, 0.4 * x, 1.0 , 1.0);
 
 
             // if ( inCircle(pixel.x, pixel.y) ){
@@ -96,7 +96,7 @@
         uniform mat4 uPMatrix;
         uniform mat4 uObjectMatrix;
 
-        varying vec2 pixel;
+        varying  highp vec2 pixel;
 
         void main(void) {
             gl_Position = uPMatrix * uMVMatrix * uObjectMatrix * vec4(aVertexPosition, 1.0);
@@ -154,6 +154,8 @@
     var triangleVertexPositionBuffer;
     var squareVertexPositionBuffer;
 
+    var depth = -7.0;
+
     function drawSquare () {
 
         if (squareVertexPositionBuffer == undefined){
@@ -171,7 +173,8 @@
         }
 
 
-        mat4.translate(objectMatrix, [0.0, 0.0, -7.0]);
+        mat4.translate(objectMatrix, [1.5, 0.0, depth]);
+
         gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexPositionBuffer);
         gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, squareVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
         setMatrixUniforms();
@@ -187,7 +190,7 @@
     }
 
     function setUpCamera () {
-        mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
+        mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.0001, 100.0, pMatrix);
 
         mat4.identity(mvMatrix);
         gl.uniformMatrix4fv(shaderProgram.pMatrixUniform, false, pMatrix);
@@ -203,7 +206,7 @@
 
     function renderLoop() {
         drawScene();
-        window.setTimeout(renderLoop, 1000 / 60);
+        window.setTimeout(renderLoop, 1000 / 30);
     }
 
     function webGLStart() {
@@ -214,8 +217,16 @@
         gl.clearColor(0.0, 0.0, 0.0, 1.0);
         gl.enable(gl.DEPTH_TEST);
 
-        drawScene();
+        canvas.addEventListener('mousewheel', function(e){
+            if (e.wheelDelta > 0) depth *= 0.99;
+            else depth *= (1/0.99);
+            e.preventDefault();
+        } );
+
+        renderLoop();
     }
+
+
 
 
     </script>
@@ -239,7 +250,7 @@ canvas{
 
 
 <body onload="webGLStart();">
-    <canvas id="canvas" style="border: none;" width="1000%" height="1000%"></canvas>
+    <canvas id="canvas" style="border: none;" width="2000%" height="2000%"></canvas>
 </body>
 
 </html>
